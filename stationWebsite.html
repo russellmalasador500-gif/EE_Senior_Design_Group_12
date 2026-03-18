@@ -1,0 +1,613 @@
+<!DOCTYPE html> 
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ESP32 Rover System</title>
+  <style>
+    :root{
+      --bg:#ffffff;
+      --text:#111;
+      --muted:#666;
+      --btn:#e9e9e9;
+      --btn-border:#9a9a9a;
+      --sensor-off:#bdbdbd;
+      --sensor-border:#8f8f8f;
+      --sensor-on:#7CFC00;
+      --sensor-on-border:#4CAF50;
+      --card-border:#ddd;
+      --shadow: 0 4px 16px rgba(0,0,0,.08);
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --chip:#f4f4f5;
+      --chip-border:#d4d4d8;
+    }
+
+    body{
+      margin:0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .wrap{
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 28px 20px 40px;
+    }
+
+    h1{
+      margin: 0 0 18px;
+      font-size: 34px;
+      letter-spacing: .4px;
+      text-align:center;
+    }
+
+    .layout{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+    }
+
+    .panel{
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+      background:#fff;
+      min-height: 560px;
+    }
+
+    .panel h2{
+      margin: 0 0 14px;
+      font-size: 24px;
+      text-align:center;
+    }
+
+    .row{
+      display:flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content:center;
+      margin-top: 12px;
+    }
+
+    .chip{
+      background: var(--chip);
+      border: 1px solid var(--chip-border);
+      border-radius: 14px;
+      padding: 10px 12px;
+      min-width: 160px;
+      text-align:left;
+    }
+
+    .chip .label{
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .chip .value{
+      font-size: 20px;
+      font-weight: 800;
+      display:flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .unit{
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .badge{
+      display:inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      margin-left: 8px;
+      border: 1px solid rgba(0,0,0,.08);
+    }
+
+    .badge.good{ background: rgba(34,197,94,.12); color: #166534; }
+    .badge.warn{ background: rgba(245,158,11,.12); color: #92400e; }
+    .badge.bad{  background: rgba(239,68,68,.12);  color: #991b1b; }
+
+    /* D-pad */
+    .controls{
+      display:grid;
+      grid-template-columns: 80px 80px 80px;
+      grid-template-rows: 80px 80px;
+      gap: 12px;
+      justify-content:center;
+      align-items:center;
+      margin: 8px auto 12px;
+    }
+
+    button{
+      width: 80px;
+      height: 80px;
+      font-size: 22px;
+      font-weight: 700;
+      border-radius: 12px;
+      border: 2px solid var(--btn-border);
+      background: var(--btn);
+      cursor: pointer;
+      user-select: none;
+    }
+    button:active{ transform: translateY(1px); }
+
+    #w{ grid-column:2; grid-row:1; }
+    #a{ grid-column:1; grid-row:2; }
+    #s{ grid-column:2; grid-row:2; }
+    #d{ grid-column:3; grid-row:2; }
+
+    /* Wide toggle button */
+    #m{
+      width: 280px;
+      height: 54px;
+      font-size: 16px;
+      font-weight: 700;
+      border-radius: 12px;
+      margin: 4px auto 10px;
+      display:block;
+      white-space: nowrap;
+    }
+
+    /* Wide station button */
+    .wideBtn{
+      width: 280px;
+      height: 46px;
+      font-size: 14px;
+      font-weight: 800;
+      border-radius: 12px;
+      margin: 10px auto 0;
+      display:block;
+      white-space: nowrap;
+    }
+
+    #status{
+      margin-top: 6px;
+      font-size: 16px;
+      line-height: 1.6;
+      color: var(--text);
+      text-align:center;
+    }
+    .muted{ color: var(--muted); }
+
+    .sectionTitle{
+      margin: 18px 0 10px;
+      font-size: 18px;
+      font-weight: 800;
+      text-align:center;
+    }
+
+    /* Sensors array */
+    .arrayWrap{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .endLabel{
+      font-weight: 800;
+      color: var(--muted);
+      width: 22px;
+      text-align:center;
+    }
+
+    .sensorRow{
+      display:flex;
+      justify-content:center;
+      gap: 10px;
+      flex-wrap: nowrap;
+    }
+
+    .sensor{
+      width: 62px;
+      height: 42px;
+      border-radius: 12px;
+      background: var(--sensor-off);
+      border: 2px solid var(--sensor-border);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight: 800;
+    }
+
+    .sensor.on{
+      background: var(--sensor-on);
+      border-color: var(--sensor-on-border);
+    }
+
+    .legend{
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--muted);
+      text-align:center;
+    }
+
+    @media (max-width: 900px){
+      .layout{ grid-template-columns: 1fr; }
+      .panel{ min-height: unset; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1>ESP32 Rover System</h1>
+
+    <div class="layout">
+
+      <!-- ROVER PANEL -->
+      <div class="panel">
+        <h2>Rover</h2>
+
+        <div class="controls">
+          <button id="w">W</button>
+          <button id="a">A</button>
+          <button id="s">S</button>
+          <button id="d">D</button>
+        </div>
+
+        <button id="m">M — Toggle Auto / Manual</button>
+
+        <div id="status">
+          <div>Mode: <strong><span id="mode">Auto</span></strong></div>
+          <div class="muted">Keys pressed: <span id="keys">None</span></div>
+          <div class="muted">Telemetry: <span id="telStatus">Waiting…</span></div>
+        </div>
+
+        <div class="sectionTitle">Rover Stats</div>
+
+        <div class="row">
+          <div class="chip">
+            <div class="label">Ultrasonic Distance</div>
+            <div class="value"><span id="ultra">--</span> <span class="unit">in</span></div>
+          </div>
+
+          <div class="chip">
+            <div class="label">Battery Voltage (Load)</div>
+            <div class="value"><span id="battLoadV">--</span> <span class="unit">V</span></div>
+          </div>
+
+          <div class="chip">
+            <div class="label">Battery Current</div>
+            <div class="value"><span id="battA">--</span> <span class="unit">A</span></div>
+          </div>
+
+          <div class="chip">
+            <div class="label">Battery Health</div>
+            <div class="value">
+              <span id="battHealth">--</span><span class="unit">%</span>
+              <span id="battBadge" class="badge warn">Unknown</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="sectionTitle">Line Sensors</div>
+        <div class="arrayWrap">
+          <div class="endLabel">L</div>
+          <div class="sensorRow">
+            <div id="s1" class="sensor">1</div>
+            <div id="s2" class="sensor">2</div>
+            <div id="s3" class="sensor">3</div>
+            <div id="s4" class="sensor">4</div>
+            <div id="s5" class="sensor">5</div>
+          </div>
+          <div class="endLabel">R</div>
+        </div>
+        <div class="legend">Grey = OFF, Green = ON</div>
+      </div>
+
+      <!-- STATION PANEL -->
+      <div class="panel">
+        <h2>Station</h2>
+
+        <div class="sectionTitle">Dock + Link</div>
+
+        <div class="row">
+          <div class="chip">
+            <div class="label">Dock RSSI</div>
+            <div class="value">
+              <span id="dockRssi">--</span> <span class="unit">dBm</span>
+              <span id="dockBadge" class="badge warn">Unknown</span>
+            </div>
+          </div>
+
+          <div class="chip">
+            <div class="label">Dock Last Seen</div>
+            <div class="value"><span id="dockAge">--</span> <span class="unit">ms</span></div>
+          </div>
+
+          <div class="chip">
+            <div class="label">ESP-NOW Link</div>
+            <div class="value">
+              <span id="linkOk">--</span>
+              <span id="linkBadge" class="badge warn">Unknown</span>
+            </div>
+          </div>
+
+          <div class="chip">
+            <div class="label">Charging State</div>
+            <div class="value">
+              <span id="chargeState">--</span>
+              <span id="chargeBadge" class="badge warn">Unknown</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dock/Release button -->
+        <button id="dockToggle" class="wideBtn">Dock / Release Dock</button>
+
+        <div class="sectionTitle">Battery + Power (Station)</div>
+        <div class="row">
+          <div class="chip">
+            <div class="label">Station Voltage</div>
+            <div class="value"><span id="stV">--</span> <span class="unit">V</span></div>
+          </div>
+          <div class="chip">
+            <div class="label">Station Current</div>
+            <div class="value"><span id="stA">--</span> <span class="unit">A</span></div>
+          </div>
+          <div class="chip">
+            <div class="label">Station Health</div>
+            <div class="value">
+              <span id="stHealth">--</span><span class="unit">%</span>
+              <span id="stHealthBadge" class="badge warn">Unknown</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // =========================
+    // Controls
+    // =========================
+
+    const keys = { w: false, a: false, s: false, d: false };
+
+    function sendKey(key, state) {
+      fetch(`/press?key=${key}&state=${state}`).catch(()=>{});
+      if(keys.hasOwnProperty(key)) {
+        keys[key] = state == 1;
+        updateKeysDisplay();
+      }
+    }
+
+    function updateKeysDisplay() {
+      const pressed = Object.keys(keys).filter(k => keys[k]);
+      document.getElementById('keys').innerText =
+        pressed.length ? pressed.join(', ').toUpperCase() : 'None';
+    }
+
+    function toggleMode() {
+      fetch('/press?key=m&state=1').then(fetchMode).catch(()=>{});
+    }
+
+    function fetchMode() {
+      fetch('/mode')
+        .then(r => r.json())
+        .then(data => {
+          document.getElementById('mode').innerText = data.manual ? 'Manual' : 'Auto';
+        })
+        .catch(()=>{});
+    }
+
+    function setSensor(id, on) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.toggle('on', !!on);
+    }
+
+    function setBadge(el, type, text){
+      el.classList.remove('good','warn','bad');
+      el.classList.add(type);
+      el.textContent = text;
+    }
+
+    function rssiQuality(rssi){
+      if (rssi === null || rssi === undefined || isNaN(rssi)) return {t:'warn', s:'Unknown'};
+      if (rssi >= -55) return {t:'good', s:'Excellent'};
+      if (rssi >= -70) return {t:'good', s:'Good'};
+      if (rssi >= -82) return {t:'warn', s:'Okay'};
+      return {t:'bad', s:'Weak'};
+    }
+
+    function boolQuality(b){
+      if (b === true) return {t:'good', s:'OK'};
+      if (b === false) return {t:'bad', s:'Bad'};
+      return {t:'warn', s:'Unknown'};
+    }
+
+    // =========================
+    // Rover Battery helpers
+    // =========================
+
+    const FULL_V  = 8.40;
+    const EMPTY_V = 6.40;
+    const IDLE_A  = 0.05;
+    const PCT_DECIMALS = 1;
+
+    function clamp(x, a, b){ return Math.max(a, Math.min(b, x)); }
+
+    function voltageToPercent(v){
+      const pct = ((v - EMPTY_V) / (FULL_V - EMPTY_V)) * 100;
+      return clamp(pct, 0, 100);
+    }
+
+    function currentToState(a){
+      if (a >  IDLE_A) return { text: "Discharging", badge: "bad"  };
+      if (a < -IDLE_A) return { text: "Charging",    badge: "good" };
+      return              { text: "Idle",        badge: "warn" };
+    }
+
+    function inchesFromMm(mm){
+      return mm * 0.0393701;
+    }
+
+    let lastTelTime = 0;
+    function updateTelStatus(){
+      const el = document.getElementById('telStatus');
+      const now = Date.now();
+      const age = lastTelTime ? (now - lastTelTime) : null;
+      if(age === null) el.textContent = 'Waiting…';
+      else if(age < 1500) el.textContent = 'Live';
+      else el.textContent = `Stale (${age} ms)`;
+    }
+    setInterval(updateTelStatus, 300);
+
+    function fetchTelemetry(){
+      fetch('/telemetry')
+        .then(r => r.json())
+        .then(t => {
+          lastTelTime = Date.now();
+
+          if (typeof t.manual !== 'undefined') {
+            document.getElementById('mode').innerText = t.manual ? 'Manual' : 'Auto';
+          }
+
+          // Line sensors
+          if (typeof t.s1 !== 'undefined') setSensor('s1', t.s1);
+          if (typeof t.s2 !== 'undefined') setSensor('s2', t.s2);
+          if (typeof t.s3 !== 'undefined') setSensor('s3', t.s3);
+          if (typeof t.s4 !== 'undefined') setSensor('s4', t.s4);
+          if (typeof t.s5 !== 'undefined') setSensor('s5', t.s5);
+
+          // Ultrasonic
+          if (typeof t.distanceMm !== 'undefined') {
+            const inches = inchesFromMm(Number(t.distanceMm));
+            if (!isNaN(inches)) document.getElementById('ultra').innerText = inches.toFixed(2);
+          }
+
+          // Rover battery LOAD voltage
+          let amps = null;
+          if (typeof t.battLoad_mV !== 'undefined') {
+            const vLoad = Number(t.battLoad_mV) / 1000.0;
+            if (!isNaN(vLoad)) {
+              document.getElementById('battLoadV').innerText = vLoad.toFixed(2);
+              document.getElementById('battHealth').innerText = voltageToPercent(vLoad).toFixed(PCT_DECIMALS);
+            }
+          }
+
+          if (typeof t.batt_mA !== 'undefined') {
+            amps = Number(t.batt_mA) / 1000.0;
+            if (!isNaN(amps)) document.getElementById('battA').innerText = amps.toFixed(2);
+          }
+
+          // Rover battery badge + Charging state
+          if (amps !== null && !isNaN(amps)) {
+            const st = currentToState(amps);
+            setBadge(document.getElementById('battBadge'), st.badge, st.text);
+
+            document.getElementById('chargeState').innerText = st.text;
+            setBadge(document.getElementById('chargeBadge'), st.badge, st.text);
+          } else {
+            setBadge(document.getElementById('battBadge'), 'warn', 'Unknown');
+            document.getElementById('chargeState').innerText = '--';
+            setBadge(document.getElementById('chargeBadge'), 'warn', 'Unknown');
+          }
+
+          // Dock RSSI + age
+          if (typeof t.dockRssi !== 'undefined') {
+            const rssi = Number(t.dockRssi);
+            document.getElementById('dockRssi').innerText = isNaN(rssi) ? '--' : rssi.toFixed(0);
+            const q = rssiQuality(rssi);
+            setBadge(document.getElementById('dockBadge'), q.t, q.s);
+          }
+          if (typeof t.dockAgeMs !== 'undefined') {
+            document.getElementById('dockAge').innerText = Number(t.dockAgeMs).toFixed(0);
+          }
+
+          // Link status
+          if (typeof t.linkOk !== 'undefined') {
+            const ok = !!t.linkOk;
+            document.getElementById('linkOk').innerText = ok ? 'Yes' : 'No';
+            const q = boolQuality(ok);
+            setBadge(document.getElementById('linkBadge'), q.t, q.s);
+          }
+
+          // ✅ StationFunction -> Station V & A (same style as rover)
+          if (t.fnOk) {
+            if (typeof t.st_mV !== 'undefined') {
+              const v = Number(t.st_mV) / 1000.0;
+              if (!isNaN(v)) document.getElementById('stV').innerText = v.toFixed(2);
+            }
+            if (typeof t.st_mA !== 'undefined') {
+              const a = Number(t.st_mA) / 1000.0;
+              if (!isNaN(a)) document.getElementById('stA').innerText = a.toFixed(2);
+            }
+            document.getElementById('stHealth').innerText = '--';
+            setBadge(document.getElementById('stHealthBadge'), 'warn', 'Unknown');
+          } else {
+            document.getElementById('stV').innerText = '--';
+            document.getElementById('stA').innerText = '--';
+            document.getElementById('stHealth').innerText = '--';
+            setBadge(document.getElementById('stHealthBadge'), 'warn', 'Unknown');
+          }
+        })
+        .catch(()=>{});
+    }
+
+    function fetchUltrasonicFallback() {
+      fetch('/distance')
+        .then(r => r.text())
+        .then(txt => {
+          const num = parseFloat(txt);
+          if (isNaN(num)) return;
+          const inches = num * 0.393701;
+          document.getElementById('ultra').innerText = inches.toFixed(2);
+        })
+        .catch(()=>{});
+    }
+
+    setInterval(fetchMode, 600);
+    setInterval(fetchTelemetry, 1000);
+    setInterval(fetchUltrasonicFallback, 500);
+
+    document.addEventListener('keydown', e => {
+      if (e.repeat) return;
+      const key = e.key.toLowerCase();
+      if (['w','a','s','d'].includes(key)) sendKey(key, 1);
+      if (key === 'm') toggleMode();
+    });
+
+    document.addEventListener('keyup', e => {
+      const key = e.key.toLowerCase();
+      if (['w','a','s','d'].includes(key)) sendKey(key, 0);
+    });
+
+    const bindHold = (id, key) => {
+      const btn = document.getElementById(id);
+      btn.addEventListener('mousedown', () => sendKey(key, 1));
+      btn.addEventListener('mouseup',   () => sendKey(key, 0));
+      btn.addEventListener('mouseleave',() => sendKey(key, 0));
+      btn.addEventListener('touchstart', (e)=>{ e.preventDefault(); sendKey(key, 1); }, {passive:false});
+      btn.addEventListener('touchend',   (e)=>{ e.preventDefault(); sendKey(key, 0); }, {passive:false});
+    };
+
+    bindHold('w','w');
+    bindHold('a','a');
+    bindHold('s','s');
+    bindHold('d','d');
+    document.getElementById('m').addEventListener('click', toggleMode);
+
+    // Dock/Release Dock button (sends 'u' to StationWebsite -> StationFunction)
+    document.getElementById('dockToggle').addEventListener('click', ()=>sendKey('u',1));
+
+    fetchMode();
+    fetchTelemetry();
+    fetchUltrasonicFallback();
+  </script>
+</body>
+</html>
